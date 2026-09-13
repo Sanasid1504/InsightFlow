@@ -1,23 +1,18 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
     extend: {
+      fontFamily: {
+        vogue: ['"VeryVogue"', 'sans-serif'],
+      },
       colors: {
-        background: "#0a0f1e",
-        surface: "#111827",
-        card: "#1a2235",
-        border: "#1e2d45",
-        accent: "#3b82f6",
-        danger: "#ef4444",
-        warning: "#f59e0b",
-        success: "#10b981",
-        muted: "#6b7280",
-        text: "#f1f5f9",
-      }
+        vogueDark: '#031130',
+        vogueBlue: '#185DF1',
+        vogueLight: '#F3F7FE',
+      },
     },
   },
   plugins: [],

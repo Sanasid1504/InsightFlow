@@ -1,24 +1,83 @@
-import Dashboard from "./pages/Dashboard";
-import HomePage from "./pages/Home";
-import Login from "./pages/Login";
-import SarBuilder from "./pages/SarBuilder";
-import Signup from "./pages/Signup";
-import Alert from "./pages/Alert";
-import { Route, Routes } from "react-router-dom";
-import Investpanel from "./pages/Investpanel";
-function App()
-{
+import { useState } from 'react';
+import Landing from './pages/landingpage';
+import Dashboard from './pages/dashboard';
+import Transactions from './pages/transactionexplore';
+import TransactionAnalysis from './pages/transactionanalysis';
+import Alerts from './pages/alerts';
+import Analytics from './pages/analytics';
+import Login from './pages/login';
+
+export default function App() {
+  const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'transactions' | 'analysis' | 'alerts' | 'analytics' | 'login'>('landing');
+
+  const handleNavigation = (viewName: string) => {
+    const target = viewName.toLowerCase().trim();
+    if (target.includes('dashboard')) {
+      setCurrentView('dashboard');
+    } else if (target.includes('transactions')) {
+      setCurrentView('transactions');
+    } else if (target.includes('analysis') || target.includes('transaction analysis')) {
+      setCurrentView('analysis');
+    } else if (target.includes('alerts')) {
+      setCurrentView('alerts');
+    } else if (target.includes('analytics')) {
+      setCurrentView('analytics'); 
+    } else if (target.includes('login')) {
+      setCurrentView('login');
+    }
+  };
+
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/Sarbuilder" element={<SarBuilder />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/alert" element={<Alert />} />
-      <Route path="/investpanel" element={<Investpanel />} />    
-      </Routes>
+    <div>
+      {currentView === 'landing' && (
+        <Landing 
+          onGetStarted={() => setCurrentView('dashboard')} 
+          onTryAnalysis={() => setCurrentView('analysis')} 
+          onLogin={() => setCurrentView('login')}
+        />
+      )}
+
+      {currentView === 'login' && (
+        <Login 
+          onLoginSuccess={() => setCurrentView('dashboard')}
+          onBackToLanding={() => setCurrentView('landing')}
+        />
+      )}
+
+      {currentView === 'dashboard' && (
+        <Dashboard 
+          onBackToLanding={() => setCurrentView('landing')} 
+          onNavigate={handleNavigation}
+        />
+      )}
+
+      {currentView === 'transactions' && (
+        <Transactions 
+          onBackToLanding={() => setCurrentView('landing')} 
+          onNavigate={handleNavigation}
+        />
+      )}
+
+      {currentView === 'analysis' && (
+        <TransactionAnalysis 
+          onBackToLanding={() => setCurrentView('landing')} 
+          onNavigate={handleNavigation}
+        />
+      )}
+
+      {currentView === 'alerts' && (
+        <Alerts 
+          onBackToLanding={() => setCurrentView('landing')} 
+          onNavigate={handleNavigation}
+        />
+      )}
+
+      {currentView === 'analytics' && (
+        <Analytics 
+          onBackToLanding={() => setCurrentView('landing')} 
+          onNavigate={handleNavigation}
+        />
+      )}
+    </div>
   );
 }
-
-export default App;
