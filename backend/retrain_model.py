@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -32,13 +32,13 @@ preprocessor = ColumnTransformer(transformers=[
     ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_cols)
 ])
 
-dtree = Pipeline(steps=[
+rf = Pipeline(steps=[
     ('prep', preprocessor),
-    ('clf', DecisionTreeClassifier(max_depth=8, class_weight='balanced', random_state=42))
+    ('clf', RandomForestClassifier(n_estimators=100, max_depth=10,n_jobs=-1, class_weight='balanced', random_state=42))
 ])
 
-dtree.fit(X_train, y_train)
+rf.fit(X_train, y_train)
 
 # Save it — using THIS environment's library versions
-joblib.dump(dtree, 'app/models/fraud_model_dtree.pkl')
+joblib.dump(rf, 'app/models/fraud_model_rf.pkl')
 print("Model retrained and saved successfully.")
