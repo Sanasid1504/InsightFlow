@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  LayoutDashboard, 
-  ArrowLeftRight, 
-  Search, 
-  Bell, 
-  BarChart3, 
-  Menu, 
-  X, 
-  ArrowLeft, 
-  Eye, 
+import {
+  LayoutDashboard,
+  ArrowLeftRight,
+  Search,
+  Bell,
+  BarChart3,
+  Menu,
+  X,
+  ArrowLeft,
+  Eye,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -86,11 +86,11 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
 
   const filteredTransactions = useMemo(() => {
     return transactionsList.filter((row) => {
-      const matchesSearch = row.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            row.txId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            row.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            row.amount.includes(searchQuery);
-      
+      const matchesSearch = row.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        row.txId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        row.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        row.amount.includes(searchQuery);
+
       const matchesType = selectedTypeFilter === 'All types' || row.type.toLowerCase() === selectedTypeFilter.toLowerCase();
       const matchesRisk = selectedRiskFilter === 'All risk levels' || row.risk === selectedRiskFilter;
 
@@ -132,8 +132,8 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
       <aside className={`absolute lg:relative z-30 inset-y-0 left-0 w-64 bg-[#061F22]/80 backdrop-blur-xl border-r border-[#2A4845]/50 flex flex-col justify-between shrink-0 h-full transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-20'}`}>
         <div>
           <div className="p-6 border-b border-[#2A4845]/40 flex items-center justify-between gap-3">
-            <div 
-              onClick={onBackToLanding} 
+            <div
+              onClick={onBackToLanding}
               className="cursor-pointer flex flex-col overflow-hidden"
               title="Return to Landing Page"
             >
@@ -144,7 +144,7 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
                 <span className="text-[10px] text-[#C8D7CD]/60 font-mono tracking-wider mt-1 whitespace-nowrap">FRAUD DETECTION</span>
               )}
             </div>
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-1.5 rounded-xl bg-[#2A4845]/30 border border-[#2A4845]/50 text-[#C8D7CD] hover:bg-[#2A4845]/50 transition-colors lg:hidden shrink-0 cursor-pointer"
             >
@@ -157,7 +157,7 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
               { name: 'Dashboard', icon: LayoutDashboard, badge: null },
               { name: 'Transactions', icon: ArrowLeftRight, badge: null },
               { name: 'Transaction Analysis', icon: Search, badge: null },
-              { name: 'Alerts', icon: Bell , badge: null},
+              { name: 'Alerts', icon: Bell, badge: null },
               { name: 'Analytics', icon: BarChart3, badge: null }
             ].map((item) => {
               const Icon = item.icon;
@@ -167,11 +167,10 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
                   key={item.name}
                   onClick={() => handleNavClick(item.name)}
                   title={item.name}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                    isActive 
-                      ? 'bg-[#2A4845]/50 text-[#C8D7CD] border border-[#2A4845] shadow-lg shadow-[#061F22]/50' 
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer ${isActive
+                      ? 'bg-[#2A4845]/50 text-[#C8D7CD] border border-[#2A4845] shadow-lg shadow-[#061F22]/50'
                       : 'text-[#C8D7CD]/70 hover:bg-[#2A4845]/20 hover:text-[#C8D7CD] border border-transparent'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon className="w-4 h-4 text-[#C8D7CD] shrink-0" />
@@ -190,7 +189,7 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
 
         <div className="p-4 border-t border-[#2A4845]/40 space-y-2">
           {onBackToLanding && (
-            <button 
+            <button
               onClick={onBackToLanding}
               className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm text-[#C8D7CD]/70 hover:bg-[#2A4845]/30 hover:text-[#C8D7CD] transition-colors border border-transparent hover:border-[#2A4845]/50 cursor-pointer"
             >
@@ -202,10 +201,10 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
       </aside>
 
       <div className="flex-1 flex flex-col h-full overflow-y-auto bg-[#061F22]">
-        
+
         <header className="h-20 bg-[#061F22]/70 backdrop-blur-xl border-b border-[#2A4845]/40 px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20 shrink-0 shadow-lg">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-2.5 rounded-2xl bg-[#061F22]/40 backdrop-blur-md border border-[#2A4845]/60 text-[#C8D7CD] hover:border-[#C8D7CD]/40 transition-all shadow-lg cursor-pointer"
               title="Toggle Sidebar"
@@ -215,7 +214,7 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
           </div>
 
           <div className="flex items-center gap-4">
-            
+
             <div className="flex items-center gap-3 pl-3 border-l border-[#2A4845]/60">
               <div className="w-9 h-9 rounded-2xl bg-[#2A4845]/40 backdrop-blur-md border border-[#C8D7CD]/30 flex items-center justify-center font-bold text-sm text-[#C8D7CD] shadow-lg">
                 IN
@@ -235,11 +234,11 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
             <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
               <div className="relative flex-1 w-full max-w-md">
                 <Search className="absolute left-3.5 top-3 w-4 h-4 text-[#C8D7CD]/40" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search ID, type, balance flow..." 
+                  placeholder="Search ID, type, balance flow..."
                   className="w-full bg-[#061F22]/40 backdrop-blur-md border border-[#2A4845] rounded-2xl pl-10 pr-4 py-2.5 text-sm text-[#C8D7CD] placeholder-[#C8D7CD]/40 focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg font-mono"
                 />
               </div>
@@ -308,14 +307,13 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
                         <td className="py-4 px-4 text-[#C8D7CD]/80">{row.newDestBal}</td>
                         <td className="py-4 px-4 text-[#C8D7CD]/90">{row.prob}</td>
                         <td className="py-4 px-4">
-                          <span className={`text-xs font-semibold ${
-                            row.risk === 'HIGH' ? 'text-red-400' : row.risk === 'MEDIUM' ? 'text-amber-400' : 'text-emerald-400'
-                          }`}>
+                          <span className={`text-xs font-semibold ${row.risk === 'HIGH' ? 'text-red-400' : row.risk === 'MEDIUM' ? 'text-amber-400' : 'text-emerald-400'
+                            }`}>
                             {row.risk}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-right">
-                          <button 
+                          <button
                             onClick={() => setSelectedTransaction(row)}
                             className="px-3 py-1.5 rounded-2xl border border-[#2A4845] text-xs text-[#C8D7CD] hover:bg-[#2A4845]/40 transition-colors inline-flex items-center gap-1.5 shadow-md cursor-pointer"
                           >
@@ -340,7 +338,7 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
                 Showing {filteredTransactions.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–{Math.min(currentPage * pageSize, filteredTransactions.length)} of {filteredTransactions.length} records
               </span>
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
                   className="p-2 rounded-xl border border-[#2A4845] text-[#C8D7CD] hover:bg-[#2A4845]/40 bg-[#061F22]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
@@ -350,7 +348,7 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
                 <span className="px-3 py-1.5 rounded-xl bg-[#2A4845] text-[#C8D7CD] font-bold border border-[#C8D7CD]/40">
                   Page {currentPage} of {totalPages}
                 </span>
-                <button 
+                <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
                   className="p-2 rounded-xl border border-[#2A4845] text-[#C8D7CD] hover:bg-[#2A4845]/40 bg-[#061F22]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
@@ -371,14 +369,14 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
           <div className="bg-[#061F22]/90 backdrop-blur-2xl border border-[#2A4845] rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[#2A4845]/60 pb-3">
               <h3 className="text-lg font-bold text-[#C8D7CD]">Transaction Record: {selectedTransaction.txId}</h3>
-              <button 
+              <button
                 onClick={() => setSelectedTransaction(null)}
                 className="text-[#C8D7CD]/60 hover:text-[#C8D7CD] text-lg font-bold cursor-pointer"
               >
                 ✕
               </button>
             </div>
-            
+
             <div className="space-y-3 font-mono text-xs">
               <div className="flex justify-between p-3 rounded-2xl bg-[#2A4845]/20 backdrop-blur-md border border-[#2A4845]/40">
                 <span className="text-[#C8D7CD]/60">Type & Amount:</span>

@@ -225,7 +225,7 @@ export default function Analytics({
     const y =
       chartHeight -
       (bucket.count / maxTimeValue) *
-        (chartHeight - 30);
+      (chartHeight - 30);
 
     return {
       x,
@@ -271,11 +271,10 @@ export default function Analytics({
       }}
     >
       <aside
-        className={`absolute lg:relative z-30 inset-y-0 left-0 w-64 bg-[#061F22]/80 backdrop-blur-xl border-r border-[#2A4845]/50 flex flex-col justify-between shrink-0 h-full transition-transform duration-300 ${
-          isSidebarOpen
+        className={`absolute lg:relative z-30 inset-y-0 left-0 w-64 bg-[#061F22]/80 backdrop-blur-xl border-r border-[#2A4845]/50 flex flex-col justify-between shrink-0 h-full transition-transform duration-300 ${isSidebarOpen
             ? "translate-x-0"
             : "-translate-x-full lg:translate-x-0 lg:w-20"
-        }`}
+          }`}
       >
         <div>
 
@@ -349,11 +348,10 @@ export default function Analytics({
                     handleNavClick(item.name)
                   }
                   title={item.name}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                    isActive
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer ${isActive
                       ? "bg-[#2A4845]/50 text-[#F5F2EB] border border-[#2A4845] shadow-lg shadow-[#061F22]/50"
                       : "text-[#F5F2EB]/70 hover:bg-[#2A4845]/20 hover:text-[#F5F2EB] border border-transparent"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon className="w-4 h-4 text-[#F5F2EB] shrink-0" />
@@ -414,11 +412,10 @@ export default function Analytics({
               className="p-2.5 rounded-2xl bg-[#061F22]/40 backdrop-blur-md border border-[#2A4845]/60 text-[#F5F2EB] hover:border-[#F5F2EB]/40 transition-all shadow-lg disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw
-                className={`w-4 h-4 ${
-                  isRefreshing
+                className={`w-4 h-4 ${isRefreshing
                     ? "animate-spin"
                     : ""
-                }`}
+                  }`}
               />
             </button>
 
@@ -756,7 +753,7 @@ export default function Analytics({
                         height: `${Math.max(
                           bar.val > 0
                             ? (bar.val / maxTxType) *
-                                100
+                            100
                             : 0,
                           bar.val > 0 ? 5 : 0
                         )}%`,
@@ -797,8 +794,8 @@ export default function Analytics({
                         height: `${Math.max(
                           item.count > 0
                             ? (item.count /
-                                maxAmountBucket) *
-                                100
+                              maxAmountBucket) *
+                            100
                             : 0,
                           item.count > 0 ? 5 : 0
                         )}%`,

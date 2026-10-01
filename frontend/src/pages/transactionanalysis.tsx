@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  ArrowLeftRight, 
-  Search, 
-  Bell, 
-  BarChart3, 
-  Menu, 
-  X, 
-  ArrowLeft, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Info, 
+import {
+  LayoutDashboard,
+  ArrowLeftRight,
+  Search,
+  Bell,
+  BarChart3,
+  Menu,
+  X,
+  ArrowLeft,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
   ShieldAlert,
   ArrowRight
 } from 'lucide-react';
@@ -48,7 +48,7 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
   const handleAnalyzeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     // Explicitly mapping all fields including newbalanceOrig and oldbalanceDest
     const payload = {
       type: txType,
@@ -66,17 +66,17 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      
+
       if (!response.ok) {
         const errText = await response.text();
         throw new Error(`Prediction failed: ${errText}`);
       }
-      
+
       const data = await response.json();
       setPredictionResult(data);
       setHasAnalyzed(true);
       setIsAlertCreated(false);
-      
+
       if (data.txId) {
         localStorage.setItem('highlightTxId', data.txId);
       }
@@ -100,8 +100,8 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
       <aside className={`absolute lg:relative z-30 inset-y-0 left-0 w-64 bg-[#061F22]/80 backdrop-blur-xl border-r border-[#2A4845]/50 flex flex-col justify-between shrink-0 h-full transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-20'}`}>
         <div>
           <div className="p-6 border-b border-[#2A4845]/40 flex items-center justify-between gap-3">
-            <div 
-              onClick={onBackToLanding} 
+            <div
+              onClick={onBackToLanding}
               className="cursor-pointer flex flex-col overflow-hidden"
               title="Return to Landing Page"
             >
@@ -112,7 +112,7 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
                 <span className="text-[10px] text-[#C8D7CD]/60 font-mono tracking-wider mt-1 whitespace-nowrap">FRAUD DETECTION</span>
               )}
             </div>
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-1.5 rounded-xl bg-[#2A4845]/30 border border-[#2A4845]/50 text-[#C8D7CD] hover:bg-[#2A4845]/50 transition-colors lg:hidden shrink-0"
             >
@@ -135,11 +135,10 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
                   key={item.name}
                   onClick={() => handleNavClick(item.name)}
                   title={item.name}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
-                    isActive 
-                      ? 'bg-[#2A4845]/50 text-[#C8D7CD] border border-[#2A4845] shadow-lg shadow-[#061F22]/50' 
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${isActive
+                      ? 'bg-[#2A4845]/50 text-[#C8D7CD] border border-[#2A4845] shadow-lg shadow-[#061F22]/50'
                       : 'text-[#C8D7CD]/70 hover:bg-[#2A4845]/20 hover:text-[#C8D7CD] border border-transparent'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon className="w-4 h-4 text-[#C8D7CD] shrink-0" />
@@ -157,7 +156,7 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
 
         <div className="p-4 border-t border-[#2A4845]/40 space-y-2">
           {onBackToLanding && (
-            <button 
+            <button
               onClick={onBackToLanding}
               className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm text-[#C8D7CD]/70 hover:bg-[#2A4845]/30 hover:text-[#C8D7CD] transition-colors border border-transparent hover:border-[#2A4845]/50"
             >
@@ -170,10 +169,10 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
 
       {/* RIGHT SIDE SCROLLABLE CONTAINER */}
       <div className="flex-1 flex flex-col h-full overflow-y-auto bg-[#061F22]">
-        
+
         <header className="h-20 bg-[#061F22]/70 backdrop-blur-xl border-b border-[#2A4845]/40 px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20 shrink-0 shadow-lg">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-2.5 rounded-2xl bg-[#061F22]/40 backdrop-blur-md border border-[#2A4845]/60 text-[#C8D7CD] hover:border-[#C8D7CD]/40 transition-all shadow-lg"
               title="Toggle Sidebar"
@@ -193,7 +192,7 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
         </header>
 
         <main className="p-6 lg:p-8 max-w-[100rem] w-full mx-auto space-y-8 bg-transparent">
-          
+
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-[#C8D7CD] tracking-tight">Transaction Analysis</h1>
             <p className="text-sm text-[#C8D7CD]/70 mt-1">Submit a transaction and let the machine learning model evaluate its fraud risk.</p>
@@ -206,7 +205,7 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-[#C8D7CD]/70">TRANSACTION TYPE</label>
-                  <select 
+                  <select
                     value={txType}
                     onChange={(e) => setTxType(e.target.value)}
                     className="w-full bg-[#061F22]/60 backdrop-blur-md border border-[#2A4845] rounded-2xl px-4 py-3 text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg cursor-pointer"
@@ -220,8 +219,8 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
 
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-[#C8D7CD]/70">AMOUNT (₹)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="w-full bg-[#061F22]/60 backdrop-blur-md border border-[#2A4845] rounded-2xl px-4 py-3 text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg font-mono"
@@ -231,8 +230,8 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
 
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-[#C8D7CD]/70">STEP (HOUR)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={step}
                     onChange={(e) => setStep(e.target.value)}
                     className="w-full bg-[#061F22]/60 backdrop-blur-md border border-[#2A4845] rounded-2xl px-4 py-3 text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg font-mono"
@@ -246,8 +245,8 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-mono text-[#C8D7CD]/70">OLD BALANCE (₹)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={oldOrgBal}
                       onChange={(e) => setOldOrgBal(e.target.value)}
                       className="w-full bg-[#061F22]/60 backdrop-blur-md border border-[#2A4845] rounded-2xl px-4 py-3 text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg font-mono"
@@ -255,8 +254,8 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-mono text-[#C8D7CD]/70">NEW BALANCE (₹)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={newOrgBal}
                       onChange={(e) => setNewOrgBal(e.target.value)}
                       className="w-full bg-[#061F22]/60 backdrop-blur-md border border-[#2A4845] rounded-2xl px-4 py-3 text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg font-mono"
@@ -270,8 +269,8 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-mono text-[#C8D7CD]/70">OLD BALANCE (₹)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={oldDestBal}
                       onChange={(e) => setOldDestBal(e.target.value)}
                       className="w-full bg-[#061F22]/60 backdrop-blur-md border border-[#2A4845] rounded-2xl px-4 py-3 text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg font-mono"
@@ -279,8 +278,8 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-mono text-[#C8D7CD]/70">NEW BALANCE (₹)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={newDestBal}
                       onChange={(e) => setNewDestBal(e.target.value)}
                       className="w-full bg-[#061F22]/60 backdrop-blur-md border border-[#2A4845] rounded-2xl px-4 py-3 text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg font-mono"
@@ -290,12 +289,12 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
               </div>
 
               <div className="pt-4">
-                <button 
+                <button
                   type="submit"
                   disabled={isLoading}
                   className="w-full py-4 rounded-2xl bg-[#C8D7CD] text-[#061F22] font-bold hover:bg-[#E2EDE6] transition-all flex items-center justify-center gap-2 text-sm cursor-pointer disabled:opacity-50"
                 >
-                  <Search className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> 
+                  <Search className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                   {isLoading ? 'Analyzing...' : 'Analyze Transaction'}
                 </button>
               </div>
@@ -313,11 +312,10 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
                     <h2 className="text-lg font-bold text-[#C8D7CD] tracking-wide">{predictionResult.risk_level} RISK TRANSACTION</h2>
                   </div>
                 </div>
-                <span className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-semibold border ${
-                  predictionResult.risk_level === 'HIGH' 
-                    ? 'bg-red-500/20 text-red-400 border-red-500/30' 
+                <span className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-semibold border ${predictionResult.risk_level === 'HIGH'
+                    ? 'bg-red-500/20 text-red-400 border-red-500/30'
                     : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                }`}>
+                  }`}>
                   {predictionResult.risk_level}
                 </span>
               </div>
@@ -375,7 +373,7 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
               </div>
 
               <div className="flex flex-wrap items-center gap-4">
-                <button 
+                <button
                   onClick={handleCreateAlert}
                   disabled={isAlertCreated}
                   className="px-6 py-3 rounded-2xl bg-[#C8D7CD] text-[#061F22] font-bold text-xs hover:bg-[#E2EDE6] transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50 cursor-pointer"
@@ -383,7 +381,7 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
                   <CheckCircle2 className="w-4 h-4" /> {isAlertCreated ? 'Alert Saved' : 'Create Alert'}
                 </button>
                 {isAlertCreated && (
-                  <button 
+                  <button
                     onClick={() => handleNavClick('Alerts')}
                     className="text-xs font-mono text-[#E2EDE6] hover:underline flex items-center gap-1.5 cursor-pointer"
                   >

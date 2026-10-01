@@ -13,7 +13,6 @@ import {
   Menu,
   X,
   ArrowLeft,
-  ShieldAlert,
   ArrowRight
 } from 'lucide-react';
 
@@ -400,9 +399,6 @@ export default function Dashboard({ onBackToLanding, onNavigate }: DashboardProp
                   <h3 className="text-2xl font-bold text-[#C8D7CD] mt-0.5">
                     {loading ? '...' : dashboardData.kpis.escalated_cases}
                   </h3>
-                </div>
-                <div className="w-9 h-9 rounded-2xl bg-[#2A4845]/30 backdrop-blur-md border border-[#2A4845]/80 flex items-center justify-center text-[#C8D7CD] shadow-lg">
-                  <ShieldAlert className="w-4 h-4" />
                 </div>
               </div>
               <p className="text-xs text-[#C8D7CD]/60 font-mono">Under active investigation</p>

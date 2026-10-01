@@ -8,3 +8,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #F7F2EB;
+    color: #2C382B;
+    font-family: 'Poppins', sans-serif;
+  }
+}
