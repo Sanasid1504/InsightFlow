@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Landing from './pages/landingpage';
-import Dashboard from './pages/dashboard';
+import Dashboard from './pages/Dashboard';
 import Transactions from './pages/transactionexplore';
 import TransactionAnalysis from './pages/transactionanalysis';
 import Alerts from './pages/alerts';
