@@ -61,7 +61,7 @@ export default function TransactionAnalysis({ onBackToLanding, onNavigate }: Tra
     };
 
     try {
-      const response = await fetch('http://localhost:8000/api/predict', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/alerts?limit=500`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

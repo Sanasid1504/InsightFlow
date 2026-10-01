@@ -51,7 +51,7 @@ export default function Transactions({ onBackToLanding, onNavigate }: Transactio
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/alerts?limit=500');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/alerts?limit=500`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

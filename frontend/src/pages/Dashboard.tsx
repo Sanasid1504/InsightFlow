@@ -78,7 +78,7 @@ export default function Dashboard({ onBackToLanding, onNavigate }: DashboardProp
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/alerts?limit=500');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/alerts?limit=500`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -161,7 +161,7 @@ export default function Dashboard({ onBackToLanding, onNavigate }: DashboardProp
         newbalanceDest: 85000
       };
 
-      const response = await fetch('http://localhost:8000/api/predict', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/alerts?limit=500`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
