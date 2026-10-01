@@ -5,7 +5,7 @@ import Transactions from './pages/transactionexplore';
 import TransactionAnalysis from './pages/transactionanalysis';
 import Alerts from './pages/alerts';
 import Analytics from './pages/analytics';
-import Login from './pages/login';
+import Login from './pages/Login';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'transactions' | 'analysis' | 'alerts' | 'analytics' | 'login'>('landing');
