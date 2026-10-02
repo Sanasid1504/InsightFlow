@@ -7,7 +7,7 @@ MODEL_PATH = (
     Path(__file__)
     .resolve()
     .parents[2]
-    / "fraud_model_dtree.pkl"
+    / "fraud_model_rf.pkl"
 )
 
 try:
