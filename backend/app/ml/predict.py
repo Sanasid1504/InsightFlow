@@ -7,6 +7,8 @@ MODEL_PATH = (
     Path(__file__)
     .resolve()
     .parents[2]
+    / "app"
+    / "models"
     / "fraud_model_rf.pkl"
 )
 
