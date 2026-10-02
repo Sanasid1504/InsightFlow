@@ -1,27 +1,26 @@
 
 import os
 import uuid
+import logging
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlsplit, parse_qs
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
-import logging
-
 
 from app.schemas import TransactionInput
 from app.ml.predict import predict_fraud, predict_fraud_batch
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # MongoDB Atlas connection
 MONGODB_URI = os.getenv("MONGODB_URI")
-
-logger = logging.getLogger(__name__)
 
 if not MONGODB_URI:
     raise RuntimeError(
@@ -34,6 +33,22 @@ client = MongoClient(
     serverSelectionTimeoutMS=10000,
     connectTimeoutMS=10000,
 )
+
+# TEMPORARY DIAGNOSTIC: Does not log username or password.
+try:
+    parsed_uri = urlsplit(MONGODB_URI)
+    uri_options = parse_qs(parsed_uri.query)
+
+    logger.warning(
+        "MongoDB config check: host=%s, username_present=%s, "
+        "authSource=%s, authMechanism=%s",
+        parsed_uri.hostname,
+        bool(parsed_uri.username),
+        uri_options.get("authSource", ["default"])[0],
+        uri_options.get("authMechanism", ["default"])[0],
+    )
+except Exception:
+    logger.exception("MongoDB config diagnostic failed")
 
 db = client["insightflow_db"]
 investigations_collection = db["investigations"]
@@ -66,6 +81,7 @@ def check_database():
             status_code=503,
             detail="Database is temporarily unavailable."
         ) from exc
+
 
 @router.post("/predict")
 def predict(transaction: TransactionInput):
