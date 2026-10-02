@@ -9,6 +9,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
+import logging
+
 
 from app.schemas import TransactionInput
 from app.ml.predict import predict_fraud, predict_fraud_batch
@@ -18,6 +20,8 @@ router = APIRouter()
 
 # MongoDB Atlas connection
 MONGODB_URI = os.getenv("MONGODB_URI")
+
+logger = logging.getLogger(__name__)
 
 if not MONGODB_URI:
     raise RuntimeError(
@@ -54,11 +58,14 @@ def check_database():
     try:
         client.admin.command("ping")
     except PyMongoError as exc:
+        logger.exception(
+            "MongoDB ping failed (%s)",
+            type(exc).__name__
+        )
         raise HTTPException(
             status_code=503,
             detail="Database is temporarily unavailable."
         ) from exc
-
 
 @router.post("/predict")
 def predict(transaction: TransactionInput):
