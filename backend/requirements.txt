@@ -29,7 +29,7 @@ python-multipart==0.0.32
 redis==8.1.0
 requests==2.34.2
 routers==0.1.2
-scikit-learn==1.9.0
+scikit-learn==1.6.1
 scipy==1.18.0
 six==1.17.0
 SQLAlchemy==2.0.51

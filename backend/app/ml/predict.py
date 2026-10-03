@@ -3,15 +3,7 @@ import pandas as pd
 from pathlib import Path
 from fastapi import HTTPException
 
-MODEL_PATH = (
-    Path(__file__)
-    .resolve()
-    .parents[2]
-    / "app"
-    / "models"
-    / "fraud_model_rf.pkl"
-)
-
+MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "fraud_model_rf.pkl"
 try:
     model = joblib.load(MODEL_PATH)
     print(f"Fraud model loaded successfully: {MODEL_PATH}")
