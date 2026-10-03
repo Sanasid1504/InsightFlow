@@ -10,22 +10,19 @@ import Login from './pages/Login';
 export default function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'transactions' | 'analysis' | 'alerts' | 'analytics' | 'login'>('landing');
 
-  const handleNavigation = (viewName: string) => {
-    const target = viewName.toLowerCase().trim();
-    if (target.includes('dashboard')) {
-      setCurrentView('dashboard');
-    } else if (target.includes('transactions')) {
-      setCurrentView('transactions');
-    } else if (target.includes('analysis') || target.includes('transaction analysis')) {
-      setCurrentView('analysis');
-    } else if (target.includes('alerts')) {
-      setCurrentView('alerts');
-    } else if (target.includes('analytics')) {
-      setCurrentView('analytics'); 
-    } else if (target.includes('login')) {
-      setCurrentView('login');
-    }
-  };
+const handleNavigation = (viewName: string) => {
+  const target = viewName.toLowerCase().trim();
+  console.log("Clicked navigation:", viewName);
+  console.log("Target view:", target);
+
+  if (target === "dashboard") setCurrentView("dashboard");
+  else if (target === "transactions") setCurrentView("transactions");
+  else if (target === "transaction analysis" || target === "analysis") setCurrentView("analysis");
+  else if (target === "alerts") setCurrentView("alerts");
+  else if (target === "analytics") setCurrentView("analytics");
+  else if (target === "login") setCurrentView("login");
+  else if (target === "landing") setCurrentView("landing");
+};
 
   return (
     <div>

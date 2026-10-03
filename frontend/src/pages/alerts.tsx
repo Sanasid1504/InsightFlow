@@ -722,3 +722,4 @@ function RiskLegend({
     </div>
   );
 }
+
