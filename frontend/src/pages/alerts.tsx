@@ -1,338 +1,417 @@
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   LayoutDashboard,
   ArrowLeftRight,
   Search,
   Bell,
   BarChart3,
-  RefreshCw,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
   Menu,
   X,
   ArrowLeft,
+  RefreshCw,
 } from "lucide-react";
 
-interface AnalyticsProps {
+interface AlertsProps {
   onBackToLanding?: () => void;
   onNavigate?: (view: string) => void;
 }
 
-interface Transaction {
+interface AlertItem {
   id: string;
-  flow?: string;
-  amount: string | number;
+  txId: string;
   type: string;
-  riskScore: string | number;
-  riskLevel: string;
+  amount: string;
+  rawAmount: number;
+  prob: string;
+  rawProb: number;
+  risk: string;
+  status: string;
+  step?: string;
+  timestamp?: string;
+  description?: string;
 }
 
-interface AnalyticsResponse {
-  kpis: {
-    total_alerts: number;
-    high_risk_alerts: number;
-    transactions_monitored: number;
-    escalated_cases: number;
-  };
-  transactions: Transaction[];
-  risk_distribution: {
-    low: number;
-    medium: number;
-    high: number;
-  };
+interface ApiTransaction {
+  id?: string;
+  _id?: string;
+  alert_id?: string;
+  transaction_id?: string;
+  type?: string;
+  amount?: string | number;
+  rawAmount?: number;
+  riskScore?: number;
+  risk_score?: number;
+  fraud_probability?: number;
+  riskLevel?: string;
+  risk_level?: string;
+  status?: string;
+  step?: string | number;
+  timestamp?: string;
+  created_at?: string;
+  description?: string;
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"
+).replace(/\/+$/, "");
 
-const NAV_ITEMS = [
-  { name: "Dashboard", view: "dashboard", icon: LayoutDashboard },
-  { name: "Transactions", view: "transactions", icon: ArrowLeftRight },
-  { name: "Transaction Analysis", view: "analysis", icon: Search },
-  { name: "Alerts", view: "alerts", icon: Bell },
-  { name: "Analytics", view: "analytics", icon: BarChart3 },
-];
+const PAGE_SIZE = 10;
 
-const formatINR = (amount: number) =>
+const formatAmount = (amount: number) =>
   new Intl.NumberFormat("en-IN", {
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(amount || 0);
 
-const toAmount = (amount: string | number): number => {
-  if (typeof amount === "number") return Number.isFinite(amount) ? amount : 0;
-
-  const parsed = Number(amount.replace(/[₹,\s]/g, ""));
-  return Number.isFinite(parsed) ? parsed : 0;
+const formatTimestamp = (value?: string) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
 };
 
-const normaliseRisk = (risk: string) => risk.toUpperCase();
+const normalizeAlert = (
+  tx: ApiTransaction,
+  index: number
+): AlertItem => {
+  const rawId = String(
+    tx.id ?? tx._id ?? tx.alert_id ?? tx.transaction_id ?? `TXN-${index + 1}`
+  );
 
-export default function Analytics({
+  const rawScore = Number(
+    tx.riskScore ?? tx.risk_score ?? tx.fraud_probability ?? 0
+  );
+
+  const score = rawScore > 1 && rawScore <= 100
+    ? rawScore / 100
+    : rawScore;
+
+  const riskText = String(
+    tx.riskLevel ?? tx.risk_level ?? ""
+  ).toUpperCase();
+
+  let risk = "LOW";
+  if (riskText.includes("HIGH") || score >= 0.7) {
+    risk = "HIGH";
+  } else if (
+    riskText.includes("MEDIUM") ||
+    riskText.includes("MODERATE") ||
+    score >= 0.3
+  ) {
+    risk = "MEDIUM";
+  }
+
+  const amount = Number(tx.rawAmount ?? tx.amount ?? 0);
+  const probability = Number.isFinite(score)
+    ? Math.max(0, Math.min(score, 1))
+    : 0;
+
+  return {
+    id: rawId.startsWith("ALT-")
+      ? rawId
+      : `ALT-${rawId.replace(/[^a-zA-Z0-9]/g, "").slice(-6) || index + 1}`,
+    txId: String(tx.transaction_id ?? tx.id ?? tx._id ?? rawId),
+    type: String(tx.type ?? "UNKNOWN").toUpperCase(),
+    amount: formatAmount(amount),
+    rawAmount: amount,
+    prob: `${(probability * 100).toFixed(1)}%`,
+    rawProb: probability,
+    risk,
+    status: String(tx.status ?? "NEW").toUpperCase(),
+    step: tx.step == null ? "—" : String(tx.step),
+    timestamp: tx.timestamp ?? tx.created_at,
+    description: tx.description,
+  };
+};
+
+export default function Alerts({
   onBackToLanding,
   onNavigate,
-}: AnalyticsProps) {
-  const [activeNav, setActiveNav] = useState("Analytics");
+}: AlertsProps) {
+  const [activeNav, setActiveNav] = useState("Alerts");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [data, setData] = useState<AnalyticsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRiskFilter, setSelectedRiskFilter] =
+    useState("All risk levels");
+  const [selectedTypeFilter, setSelectedTypeFilter] =
+    useState("All types");
+  const [selectedStatusFilter, setSelectedStatusFilter] =
+    useState("All statuses");
+  const [selectedAlert, setSelectedAlert] =
+    useState<AlertItem | null>(null);
+  const [page, setPage] = useState(1);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [showToast, setShowToast] = useState(false);
 
-  const fetchAnalytics = useCallback(async () => {
-    if (!API_BASE_URL) {
-      setError("VITE_API_BASE_URL is not configured.");
-      setData(null);
-      return;
-    }
-
-    setIsRefreshing(true);
+  const fetchAlerts = useCallback(async () => {
+    setLoading(true);
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/alerts?limit=500`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/alerts?limit=500`,
+        { headers: { Accept: "application/json" } }
+      );
 
       if (!response.ok) {
-        throw new Error(`Backend returned ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: AnalyticsResponse = await response.json();
+      const data: unknown = await response.json();
+      let rows: ApiTransaction[] = [];
 
-      if (
-        !result ||
-        !result.kpis ||
-        !Array.isArray(result.transactions) ||
-        !result.risk_distribution
-      ) {
-        throw new Error("The backend returned an unexpected response.");
+      if (Array.isArray(data)) {
+        rows = data as ApiTransaction[];
+      } else if (data && typeof data === "object") {
+        const result = data as {
+          alerts?: ApiTransaction[];
+          transactions?: ApiTransaction[];
+          data?: ApiTransaction[] | { alerts?: ApiTransaction[]; transactions?: ApiTransaction[] };
+        };
+
+        if (Array.isArray(result.alerts)) {
+          rows = result.alerts;
+        } else if (Array.isArray(result.transactions)) {
+          rows = result.transactions;
+        } else if (Array.isArray(result.data)) {
+          rows = result.data;
+        } else if (result.data && typeof result.data === "object") {
+          rows = result.data.alerts ?? result.data.transactions ?? [];
+        }
       }
 
-      setData(result);
+      setAlerts(rows.map(normalizeAlert));
     } catch (err) {
-      console.error("Analytics API error:", err);
+      console.error("Failed to fetch alerts:", err);
       setError(
         err instanceof Error
-          ? `Unable to load analytics data: ${err.message}`
-          : "Unable to load analytics data."
+          ? err.message
+          : "Failed to fetch alerts from backend."
       );
     } finally {
-      setIsRefreshing(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void fetchAnalytics();
-  }, [fetchAnalytics]);
+    void fetchAlerts();
+  }, [fetchAlerts]);
 
-  const handleNavClick = (name: string, view: string) => {
+  const handleNavClick = (name: string) => {
     setActiveNav(name);
-    onNavigate?.(view);
+    if (!onNavigate) return;
+
+    if (name === "Transactions") onNavigate("transactions");
+    else if (name === "Transaction Analysis") onNavigate("analysis");
+    else if (name === "Dashboard") onNavigate("dashboard");
+    else if (name === "Alerts") onNavigate("alerts");
+    else if (name === "Analytics") onNavigate("analytics");
   };
 
-  const transactions = data?.transactions ?? [];
-  const totalTx = data?.kpis.transactions_monitored ?? transactions.length;
-  const highRiskCount = data?.risk_distribution.high ?? 0;
-  const mediumRiskCount = data?.risk_distribution.medium ?? 0;
-  const lowRiskCount = data?.risk_distribution.low ?? 0;
-  const riskTotal = lowRiskCount + mediumRiskCount + highRiskCount;
+  const handleUpdateStatus = async (alert: AlertItem, status: string) => {
+    setUpdatingStatus(true);
+    setShowToast(false);
 
-  const highRiskRate =
-    totalTx > 0 ? ((highRiskCount / totalTx) * 100).toFixed(2) : "0.00";
-
-  const numericAmounts = useMemo(
-    () => transactions.map((transaction) => toAmount(transaction.amount)),
-    [transactions]
-  );
-
-  const totalAmount = numericAmounts.reduce((sum, amount) => sum + amount, 0);
-  const averageAmount =
-    numericAmounts.length > 0 ? totalAmount / numericAmounts.length : 0;
-
-  const flaggedAmount = transactions.reduce((sum, transaction) => {
-    const risk = normaliseRisk(transaction.riskLevel);
-    return risk === "HIGH" || risk === "MEDIUM"
-      ? sum + toAmount(transaction.amount)
-      : sum;
-  }, 0);
-
-  const transactionTypeCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      CASH_IN: 0,
-      CASH_OUT: 0,
-      DEBIT: 0,
-      PAYMENT: 0,
-      TRANSFER: 0,
-    };
-
-    transactions.forEach((transaction) => {
-      const type = transaction.type?.toUpperCase();
-      if (type) counts[type] = (counts[type] ?? 0) + 1;
-    });
-
-    return counts;
-  }, [transactions]);
-
-  const txTypes = [
-    { label: "CASH_IN", value: transactionTypeCounts.CASH_IN },
-    { label: "CASH_OUT", value: transactionTypeCounts.CASH_OUT },
-    { label: "DEBIT", value: transactionTypeCounts.DEBIT },
-    { label: "PAYMENT", value: transactionTypeCounts.PAYMENT },
-    { label: "TRANSFER", value: transactionTypeCounts.TRANSFER },
-  ];
-
-  const maxTxType = Math.max(...txTypes.map((item) => item.value), 1);
-
-  const amountBuckets = useMemo(() => {
-    const buckets = [
-      { range: "0–10K", min: 0, max: 10000, count: 0 },
-      { range: "10–50K", min: 10000, max: 50000, count: 0 },
-      { range: "50–100K", min: 50000, max: 100000, count: 0 },
-      { range: "100–500K", min: 100000, max: 500000, count: 0 },
-      { range: "500K–1M", min: 500000, max: 1000000, count: 0 },
-      { range: "1M+", min: 1000000, max: Infinity, count: 0 },
-    ];
-
-    numericAmounts.forEach((amount) => {
-      const bucket = buckets.find(
-        (item) => amount >= item.min && amount < item.max
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/investigations/update`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            alert_id: alert.id,
+            status,
+          }),
+        }
       );
-      if (bucket) bucket.count += 1;
-    });
 
-    return buckets;
-  }, [numericAmounts]);
-
-  const maxAmountBucket = Math.max(
-    ...amountBuckets.map((bucket) => bucket.count),
-    1
-  );
-
-  const sampleRiskSequence = useMemo(() => {
-    const chunkCount = 8;
-    const result = Array.from({ length: chunkCount }, (_, index) => ({
-      label: `Group ${index + 1}`,
-      count: 0,
-    }));
-
-    transactions.forEach((transaction, index) => {
-      const risk = normaliseRisk(transaction.riskLevel);
-      if (risk === "HIGH" || risk === "MEDIUM") {
-        const groupIndex = Math.min(
-          Math.floor((index / Math.max(transactions.length, 1)) * chunkCount),
-          chunkCount - 1
-        );
-        result[groupIndex].count += 1;
+      if (!response.ok) {
+        throw new Error(`Status update failed: ${response.status}`);
       }
+
+      setAlerts((previous) =>
+        previous.map((item) =>
+          item.id === alert.id ? { ...item, status } : item
+        )
+      );
+
+      setSelectedAlert((previous) =>
+        previous?.id === alert.id
+          ? { ...previous, status }
+          : previous
+      );
+
+      setToastMessage(`Alert status updated to ${status}.`);
+      setShowToast(true);
+    } catch (err) {
+      console.error("Failed to update alert:", err);
+      setToastMessage(
+        err instanceof Error ? err.message : "Status update failed."
+      );
+      setShowToast(true);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const filteredAlerts = useMemo(() => {
+    const term = searchQuery.toLowerCase().trim();
+
+    return alerts.filter((row) => {
+      const matchesSearch =
+        row.id.toLowerCase().includes(term) ||
+        row.txId.toLowerCase().includes(term) ||
+        row.type.toLowerCase().includes(term) ||
+        row.status.toLowerCase().includes(term);
+
+      const matchesRisk =
+        selectedRiskFilter === "All risk levels" ||
+        row.risk === selectedRiskFilter;
+
+      const matchesType =
+        selectedTypeFilter === "All types" ||
+        row.type === selectedTypeFilter;
+
+      const matchesStatus =
+        selectedStatusFilter === "All statuses" ||
+        row.status === selectedStatusFilter;
+
+      return (
+        matchesSearch &&
+        matchesRisk &&
+        matchesType &&
+        matchesStatus
+      );
     });
+  }, [
+    alerts,
+    searchQuery,
+    selectedRiskFilter,
+    selectedTypeFilter,
+    selectedStatusFilter,
+  ]);
 
-    return result;
-  }, [transactions]);
-
-  const maxSampleRisk = Math.max(
-    ...sampleRiskSequence.map((item) => item.count),
-    1
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredAlerts.length / PAGE_SIZE)
+  );
+  const currentPage = Math.min(page, totalPages);
+  const paginatedAlerts = filteredAlerts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
   );
 
-  const lowDeg = riskTotal > 0 ? (lowRiskCount / riskTotal) * 360 : 0;
-  const mediumDeg =
-    riskTotal > 0 ? (mediumRiskCount / riskTotal) * 360 : 0;
-  const mediumEnd = lowDeg + mediumDeg;
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedRiskFilter("All risk levels");
+    setSelectedTypeFilter("All types");
+    setSelectedStatusFilter("All statuses");
+    setPage(1);
+  };
 
-  const sampleChartWidth = 700;
-  const sampleChartHeight = 200;
-  const samplePoints = sampleRiskSequence.map((item, index) => ({
-    x: (index / (sampleRiskSequence.length - 1)) * sampleChartWidth,
-    y:
-      sampleChartHeight -
-      (item.count / maxSampleRisk) * (sampleChartHeight - 30),
-  }));
-
-  const sampleLinePath = samplePoints
-    .map((point, index) => {
-      if (index === 0) return `M ${point.x} ${point.y}`;
-      const previous = samplePoints[index - 1];
-      const controlX = (previous.x + point.x) / 2;
-      return `Q ${controlX} ${previous.y}, ${point.x} ${point.y}`;
-    })
-    .join(" ");
+  const navItems = [
+    { name: "Dashboard", icon: LayoutDashboard, badge: null },
+    { name: "Transactions", icon: ArrowLeftRight, badge: null },
+    { name: "Transaction Analysis", icon: Search, badge: null },
+    { name: "Alerts", icon: Bell, badge: null },
+    { name: "Analytics", icon: BarChart3, badge: null },
+  ];
 
   return (
     <div
-      className="relative flex h-screen overflow-hidden bg-[#061F22] text-[#F5F2EB]"
+      className="h-screen bg-[#061F22] text-[#C8D7CD] flex overflow-hidden relative"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
-      {/* Sidebar */}
+      {/* Sidebar — matching the Dashboard reference */}
       <aside
-        className={`absolute inset-y-0 left-0 z-30 flex h-full w-64 shrink-0 flex-col justify-between border-r border-[#2A4845]/50 bg-[#061F22]/95 backdrop-blur-xl transition-transform duration-300 lg:relative ${
+        className={`absolute lg:relative z-30 inset-y-0 left-0 w-64 bg-[#061F22]/80 backdrop-blur-xl border-r border-[#2A4845]/50 flex flex-col justify-between shrink-0 h-full transition-transform duration-300 ${
           isSidebarOpen
             ? "translate-x-0"
             : "-translate-x-full lg:translate-x-0 lg:w-20"
         }`}
       >
         <div>
-          <div className="flex items-center justify-between gap-3 border-b border-[#2A4845]/40 p-6">
-            <button
-              type="button"
+          <div className="p-6 border-b border-[#2A4845]/40 flex items-center justify-between gap-3">
+            <div
               onClick={onBackToLanding}
-              className="flex cursor-pointer flex-col overflow-hidden text-left"
+              className="cursor-pointer flex flex-col overflow-hidden"
               title="Return to Landing Page"
-              disabled={!onBackToLanding}
             >
               <span
-                className="block whitespace-nowrap text-2xl font-bold leading-none tracking-wider text-[#F5F2EB]"
+                className="font-bold tracking-wider text-2xl text-[#C8D7CD] block leading-none whitespace-nowrap"
                 style={{ fontFamily: "VeryVogue, sans-serif" }}
               >
-                {isSidebarOpen ? "InsightFlow" : "IF"}
+                {isSidebarOpen ? "InsightFlow" : " "}
               </span>
               {isSidebarOpen && (
-                <span className="mt-1 whitespace-nowrap font-mono text-[10px] tracking-wider text-[#F5F2EB]/60">
+                <span className="text-[10px] text-[#C8D7CD]/60 font-mono tracking-wider mt-1 whitespace-nowrap">
                   FRAUD DETECTION
                 </span>
               )}
-            </button>
+            </div>
 
             <button
-              type="button"
-              onClick={() => setIsSidebarOpen(false)}
-              className="shrink-0 cursor-pointer rounded-xl border border-[#2A4845]/50 bg-[#2A4845]/30 p-1.5 text-[#F5F2EB] hover:bg-[#2A4845]/50 lg:hidden"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-1.5 rounded-xl bg-[#2A4845]/30 border border-[#2A4845]/50 text-[#C8D7CD] hover:bg-[#2A4845]/50 transition-colors lg:hidden shrink-0 cursor-pointer"
               aria-label="Close sidebar"
             >
-              <X className="h-4 w-4" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          <nav className="space-y-1 p-4" aria-label="Main navigation">
-            {NAV_ITEMS.map((item) => {
+          <div className="p-4 space-y-1">
+            {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeNav === item.name;
 
               return (
                 <button
-                  key={item.view}
-                  type="button"
-                  onClick={() => handleNavClick(item.name, item.view)}
+                  key={item.name}
+                  onClick={() => handleNavClick(item.name)}
                   title={item.name}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                     isActive
-                      ? "border-[#2A4845] bg-[#2A4845]/50 text-[#F5F2EB] shadow-lg shadow-[#061F22]/50"
-                      : "border-transparent text-[#F5F2EB]/70 hover:bg-[#2A4845]/20 hover:text-[#F5F2EB]"
+                      ? "bg-[#2A4845]/50 text-[#C8D7CD] border border-[#2A4845] shadow-lg shadow-[#061F22]/50"
+                      : "text-[#C8D7CD]/70 hover:bg-[#2A4845]/20 hover:text-[#C8D7CD] border border-transparent"
                   }`}
                 >
-                  <Icon className="h-4 w-4 shrink-0 text-[#F5F2EB]" />
-                  {isSidebarOpen && (
-                    <span className="whitespace-nowrap">{item.name}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-4 h-4 text-[#C8D7CD] shrink-0" />
+                    {isSidebarOpen && (
+                      <span className="whitespace-nowrap">{item.name}</span>
+                    )}
+                  </div>
+                  {isSidebarOpen && item.badge && (
+                    <span className="px-2 py-0.5 rounded-full text-xs bg-red-500/20 text-red-400 border border-red-500/30">
+                      {item.badge}
+                    </span>
                   )}
                 </button>
               );
             })}
-          </nav>
+          </div>
         </div>
 
-        <div className="space-y-2 border-t border-[#2A4845]/40 p-4">
+        <div className="p-4 border-t border-[#2A4845]/40 space-y-2">
           {onBackToLanding && (
             <button
-              type="button"
               onClick={onBackToLanding}
-              className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-transparent px-3.5 py-2.5 text-sm text-[#F5F2EB]/70 transition-colors hover:border-[#2A4845]/50 hover:bg-[#2A4845]/30 hover:text-[#F5F2EB]"
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm text-[#C8D7CD]/70 hover:bg-[#2A4845]/30 hover:text-[#C8D7CD] transition-colors border border-transparent hover:border-[#2A4845]/50 cursor-pointer"
             >
-              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <ArrowLeft className="w-4 h-4 shrink-0" />
               {isSidebarOpen && (
                 <span className="whitespace-nowrap">Back to Home</span>
               )}
@@ -342,384 +421,346 @@ export default function Analytics({
       </aside>
 
       {/* Main content */}
-      <div className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto bg-[#061F22]">
-        <header className="sticky top-0 z-20 flex h-20 shrink-0 items-center justify-between border-b border-[#2A4845]/40 bg-[#061F22]/90 px-6 shadow-lg backdrop-blur-xl lg:px-8">
-          <button
-            type="button"
-            onClick={() => setIsSidebarOpen((open) => !open)}
-            className="cursor-pointer rounded-2xl border border-[#2A4845]/60 bg-[#061F22]/40 p-2.5 text-[#F5F2EB] shadow-lg transition-all hover:border-[#F5F2EB]/40"
-            title="Toggle Sidebar"
-            aria-label="Toggle sidebar"
-          >
-            <Menu className="h-4 w-4" />
-          </button>
-
-          <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex-1 flex flex-col h-full overflow-y-auto bg-[#061F22]">
+        {/* Header — matching the Dashboard reference */}
+        <header className="h-20 bg-[#061F22]/70 backdrop-blur-xl border-b border-[#2A4845]/40 px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20 shrink-0 shadow-lg">
+          <div className="flex items-center gap-4">
             <button
-              type="button"
-              onClick={() => void fetchAnalytics()}
-              disabled={isRefreshing}
-              title="Refresh Data"
-              aria-label="Refresh analytics"
-              className="cursor-pointer rounded-2xl border border-[#2A4845]/60 bg-[#061F22]/40 p-2.5 text-[#F5F2EB] shadow-lg transition-all hover:border-[#F5F2EB]/40 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2.5 rounded-2xl bg-[#061F22]/40 backdrop-blur-md border border-[#2A4845]/60 text-[#C8D7CD] hover:border-[#C8D7CD]/40 transition-all shadow-lg cursor-pointer"
+              title="Toggle Sidebar"
             >
-              <RefreshCw
-                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-              />
+              <Menu className="w-4 h-4" />
             </button>
+          </div>
 
-            <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-medium text-emerald-400 shadow-lg sm:flex">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              {error ? "Connection issue" : data ? "System Operational" : "Connecting"}
-            </div>
-
-            <div className="flex items-center gap-3 border-l border-[#2A4845]/60 pl-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[#F5F2EB]/30 bg-[#2A4845]/40 text-sm font-bold text-[#F5F2EB] shadow-lg">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 pl-3 border-l border-[#2A4845]/60">
+              <div className="w-9 h-9 rounded-2xl bg-[#2A4845]/40 backdrop-blur-md border border-[#C8D7CD]/30 flex items-center justify-center font-bold text-sm text-[#C8D7CD] shadow-lg">
                 IN
               </div>
-              <span className="hidden text-sm font-medium text-[#F5F2EB] sm:inline">
+              <span className="text-sm font-medium text-[#C8D7CD] hidden sm:inline">
                 Investigator
               </span>
             </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[100rem] space-y-8 bg-transparent p-6 lg:p-8">
+        <main className="p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-8 bg-transparent">
           {/* Page heading */}
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#F5F2EB] md:text-3xl">
-              Analytics
-            </h1>
-            <p className="mt-1 text-sm text-[#F5F2EB]/70">
-              Aggregated fraud activity across the monitored transaction stream.
-            </p>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-[#C8D7CD] tracking-tight">
+                Alerts
+              </h1>
+              <p className="text-sm text-[#C8D7CD]/70 mt-1">
+                Review flagged transactions and manage active investigations.
+              </p>
+            </div>
+
+            <button
+              onClick={() => void fetchAlerts()}
+              disabled={loading}
+              className="px-4 py-2.5 rounded-2xl bg-[#2A4845]/40 backdrop-blur-md text-[#C8D7CD] text-xs font-medium hover:bg-[#2A4845]/70 transition-all flex items-center justify-center gap-2 shadow-lg border border-[#2A4845]/60 disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+              Refresh Alerts
+            </button>
           </div>
 
-          {/* Error */}
+          {/* Error message */}
           {error && (
-            <div
-              role="alert"
-              className="flex flex-col gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <span>{error}</span>
+            <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
+              {error}
+            </div>
+          )}
+
+          {/* Alert list */}
+          <div className="p-8 rounded-3xl bg-[#061F22]/40 backdrop-blur-xl border border-[#2A4845]/60 shadow-2xl space-y-6">
+
+            {/* Filters — same style as Dashboard table */}
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="absolute left-3.5 top-3 w-4 h-4 text-[#C8D7CD]/40" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search alert ID, transaction, type..."
+                  className="w-full bg-[#061F22]/40 backdrop-blur-md border border-[#2A4845] rounded-2xl pl-10 pr-4 py-2.5 text-sm text-[#C8D7CD] placeholder-[#C8D7CD]/40 focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg font-mono"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  value={selectedRiskFilter}
+                  onChange={(event) => {
+                    setSelectedRiskFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  className="px-4 py-2.5 rounded-2xl bg-[#061F22]/80 backdrop-blur-md border border-[#2A4845] text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg cursor-pointer font-mono"
+                >
+                  <option value="All risk levels" className="bg-[#061F22] text-[#C8D7CD]">
+                    All risk levels
+                  </option>
+                  <option value="LOW" className="bg-[#061F22] text-[#C8D7CD]">LOW</option>
+                  <option value="MEDIUM" className="bg-[#061F22] text-[#C8D7CD]">MEDIUM</option>
+                  <option value="HIGH" className="bg-[#061F22] text-[#C8D7CD]">HIGH</option>
+                </select>
+
+                <select
+                  value={selectedTypeFilter}
+                  onChange={(event) => {
+                    setSelectedTypeFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  className="px-4 py-2.5 rounded-2xl bg-[#061F22]/80 backdrop-blur-md border border-[#2A4845] text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg cursor-pointer font-mono"
+                >
+                  <option value="All types" className="bg-[#061F22] text-[#C8D7CD]">All types</option>
+                  <option value="CASH_IN" className="bg-[#061F22] text-[#C8D7CD]">CASH_IN</option>
+                  <option value="CASH_OUT" className="bg-[#061F22] text-[#C8D7CD]">CASH_OUT</option>
+                  <option value="DEBIT" className="bg-[#061F22] text-[#C8D7CD]">DEBIT</option>
+                  <option value="PAYMENT" className="bg-[#061F22] text-[#C8D7CD]">PAYMENT</option>
+                  <option value="TRANSFER" className="bg-[#061F22] text-[#C8D7CD]">TRANSFER</option>
+                </select>
+
+                <select
+                  value={selectedStatusFilter}
+                  onChange={(event) => {
+                    setSelectedStatusFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  className="px-4 py-2.5 rounded-2xl bg-[#061F22]/80 backdrop-blur-md border border-[#2A4845] text-sm text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 shadow-lg cursor-pointer font-mono"
+                >
+                  <option value="All statuses" className="bg-[#061F22] text-[#C8D7CD]">All statuses</option>
+                  <option value="NEW" className="bg-[#061F22] text-[#C8D7CD]">NEW</option>
+                  <option value="INVESTIGATING" className="bg-[#061F22] text-[#C8D7CD]">INVESTIGATING</option>
+                  <option value="RESOLVED" className="bg-[#061F22] text-[#C8D7CD]">RESOLVED</option>
+                  <option value="CLOSED" className="bg-[#061F22] text-[#C8D7CD]">CLOSED</option>
+                </select>
+
+                <button
+                  onClick={clearFilters}
+                  className="px-2 py-2 text-xs text-[#C8D7CD]/60 hover:text-[#C8D7CD] transition-colors cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left border-collapse">
+                <thead>
+                <tr className="border-b border-[#2A4845]/50 text-[10px] font-mono text-[#C8D7CD]/50">                    <th className="py-3 px-4">ALERT ID</th>
+                    <th className="py-3 px-4">TRANSACTION ID</th>
+                    <th className="py-3 px-4">TYPE</th>
+                    <th className="py-3 px-4">AMOUNT</th>
+                    <th className="py-3 px-4">FRAUD PROBABILITY</th>
+                    <th className="py-3 px-4">RISK</th>
+                    <th className="py-3 px-4">STATUS</th>
+                    <th className="py-3 px-4">TIMESTAMP</th>
+                    <th className="py-3 px-4 text-right">ACTION</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-[#2A4845]/30 text-sm font-mono">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={9} className="py-10 text-center text-[#C8D7CD]/50 text-xs font-mono">
+                        <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2" />
+                        Loading alerts...
+                      </td>
+                    </tr>
+                  ) : paginatedAlerts.length > 0 ? (
+                    paginatedAlerts.map((alert) => (
+                      <tr
+                        key={alert.id}
+                        className="hover:bg-[#2A4845]/20 transition-colors"
+                      >
+                        <td className="py-4 px-4 font-bold text-[#C8D7CD]">
+                          {alert.id}
+                        </td>
+                        <td className="py-4 px-4 text-[#C8D7CD]/80">
+                          {alert.txId}
+                        </td>
+                        <td className="py-4 px-4 text-[#C8D7CD]/80">
+                          {alert.type}
+                        </td>
+                        <td className="py-4 px-4 font-semibold text-[#C8D7CD]">
+                          ₹{alert.amount}
+                        </td>
+                        <td className="py-4 px-4 text-[#C8D7CD]/80">
+                          {alert.prob}
+                        </td>
+                        <td className={`py-4 px-4 font-semibold ${
+                          alert.risk === "HIGH"
+                            ? "text-red-400"
+                            : alert.risk === "MEDIUM"
+                            ? "text-amber-400"
+                            : "text-emerald-400"
+                        }`}>
+                          {alert.risk}
+                        </td>
+                        <td className="py-4 px-4 text-[#C8D7CD]">
+                          {alert.status}
+                        </td>
+                        <td className="py-4 px-4 text-xs text-[#C8D7CD]/60">
+                          {formatTimestamp(alert.timestamp)}
+                        </td>
+                        <td className="py-4 px-4 text-right">
+                          <button
+                            onClick={() => {
+                              setSelectedAlert(alert);
+                              setShowToast(false);
+                            }}
+                            className="px-3.5 py-1.5 rounded-2xl border border-[#2A4845] text-xs text-[#C8D7CD] hover:bg-[#2A4845]/40 transition-colors inline-flex items-center gap-1.5 shadow-md cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={9} className="py-10 text-center text-[#C8D7CD]/50 text-xs font-mono">
+                        {error ? "Unable to load alerts." : "No alerts match the selected filters."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-[#2A4845]/40 font-mono text-xs">
+              <span className="text-[#C8D7CD]/60">
+                Showing{" "}
+                {filteredAlerts.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}
+                {"–"}
+                {Math.min(currentPage * PAGE_SIZE, filteredAlerts.length)} of{" "}
+                {filteredAlerts.length} records
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((previous) => Math.max(1, previous - 1))}
+                  disabled={currentPage <= 1}
+                  aria-label="Previous page"
+                  className="p-2 rounded-xl border border-[#2A4845] text-[#C8D7CD] hover:bg-[#2A4845]/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="px-2 text-[#C8D7CD]">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((previous) => Math.min(totalPages, previous + 1))}
+                  disabled={currentPage >= totalPages}
+                  aria-label="Next page"
+                  className="p-2 rounded-xl border border-[#2A4845] text-[#C8D7CD] hover:bg-[#2A4845]/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {/* Alert details modal — matching Dashboard modal styling */}
+      {selectedAlert && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#061F22]/90 backdrop-blur-2xl border border-[#2A4845] rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-[#2A4845]/60 pb-3">
+              <div>
+                <p className="text-[10px] font-mono tracking-widest text-[#C8D7CD]/50 uppercase">
+                  Alert Investigation
+                </p>
+                <h3 className="text-lg font-bold text-[#C8D7CD] mt-1">
+                  {selectedAlert.id}
+                </h3>
+              </div>
               <button
-                type="button"
-                onClick={() => void fetchAnalytics()}
-                className="w-fit cursor-pointer rounded-lg border border-red-400/30 px-3 py-1.5 text-xs hover:bg-red-500/10"
+                onClick={() => setSelectedAlert(null)}
+                aria-label="Close details"
+                className="text-[#C8D7CD]/60 hover:text-[#C8D7CD] text-lg font-bold cursor-pointer"
               >
-                Try again
+                <X className="w-5 h-5" />
               </button>
             </div>
-          )}
 
-          {/* Loading */}
-          {!data && !error && (
-            <div className="rounded-2xl border border-[#2A4845]/60 bg-[#061F22]/40 p-8 text-center text-sm text-[#F5F2EB]/60">
-              <RefreshCw className="mx-auto mb-3 h-5 w-5 animate-spin" />
-              Loading analytics from backend...
-            </div>
-          )}
-
-          {/* Metrics */}
-          <section className="space-y-4">
-            <h2 className="font-mono text-xs uppercase tracking-widest text-[#F5F2EB]/60">
-              Key Metrics
-            </h2>
-
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <MetricCard
-                label="Transactions Monitored"
-                value={String(totalTx)}
-                note="Transactions reported by the API"
-              />
-              <MetricCard
-                label="High-Risk Transactions"
-                value={String(highRiskCount)}
-                note="Classified as high risk by the model"
-              />
-              <MetricCard
-                label="High-Risk Rate"
-                value={`${highRiskRate}%`}
-                note="High-risk count / monitored transactions"
-                valueClass="text-red-400"
-              />
-              <MetricCard
-                label="Medium + High-Risk Amount"
-                value={`₹${formatINR(flaggedAmount)}`}
-                note="Amount for medium- and high-risk sample records"
-              />
-              <MetricCard
-                label="Average Transaction Amount"
-                value={`₹${formatINR(averageAmount)}`}
-                note="Mean amount in the returned API sample"
-              />
-              <MetricCard
-                label="Escalated Cases"
-                value={String(data?.kpis.escalated_cases ?? 0)}
-                note="Escalations reported by the API"
-              />
-            </div>
-          </section>
-
-          {/* Sample risk activity */}
-          <section className="space-y-6 rounded-3xl border border-[#2A4845]/60 bg-[#061F22]/40 p-6 shadow-2xl backdrop-blur-xl lg:p-8">
-            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-              <div>
-                <h2 className="text-base font-bold text-[#F5F2EB]">
-                  Risk Activity in Returned Sample
-                </h2>
-                <p className="mt-1 text-xs text-[#F5F2EB]/50">
-                  Medium- and high-risk records grouped by their order in the API response
-                </p>
-              </div>
-              <span className="font-mono text-xs text-[#F5F2EB]/50">
-                {transactions.length} records
-              </span>
-            </div>
-
-            {transactions.length === 0 ? (
-              <div className="py-12 text-center text-sm text-[#F5F2EB]/50">
-                No transaction records available to chart.
-              </div>
-            ) : (
-              <>
-                <div className="relative h-56 border-b border-l border-[#2A4845]/60">
-                  <svg
-                    className="absolute inset-0 h-full w-full overflow-visible p-4"
-                    preserveAspectRatio="none"
-                    viewBox={`0 0 ${sampleChartWidth} ${sampleChartHeight}`}
-                    role="img"
-                    aria-label="Medium- and high-risk transaction counts grouped by response order"
-                  >
-                    {[40, 80, 120, 160].map((y) => (
-                      <line
-                        key={y}
-                        x1="0"
-                        y1={y}
-                        x2={sampleChartWidth}
-                        y2={y}
-                        stroke="#2A4845"
-                        strokeWidth="1"
-                        opacity="0.45"
-                      />
-                    ))}
-                    <path
-                      d={sampleLinePath}
-                      fill="none"
-                      stroke="#E6DFD5"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {samplePoints.map((point, index) => (
-                      <circle
-                        key={index}
-                        cx={point.x}
-                        cy={point.y}
-                        r="4"
-                        fill="#E6DFD5"
-                      />
-                    ))}
-                  </svg>
-                  <div className="absolute bottom-0 left-0 right-0 flex justify-between px-4">
-                    {sampleRiskSequence.map((item) => (
-                      <span
-                        key={item.label}
-                        className="text-[9px] text-[#F5F2EB]/50 sm:text-[10px]"
-                      >
-                        {item.label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-[11px] text-[#F5F2EB]/40">
-                  This is not a time-based chart; timestamps are not included in the current API response.
-                </p>
-              </>
-            )}
-          </section>
-
-          {/* Distribution charts */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Risk distribution */}
-            <section className="space-y-6 rounded-3xl border border-[#2A4845]/60 bg-[#061F22]/40 p-6 shadow-2xl backdrop-blur-xl lg:p-8">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-bold text-[#F5F2EB]">
-                  Risk Distribution
-                </h2>
-                <span className="font-mono text-xs text-[#F5F2EB]/50">
-                  Live model scoring
-                </span>
-              </div>
-
-              <div className="flex items-center justify-center py-6">
-                <div className="relative flex h-48 w-48 items-center justify-center">
-                  <div
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      background:
-                        riskTotal > 0
-                          ? `conic-gradient(
-                              #E6DFD5 0deg ${lowDeg}deg,
-                              #F59E0B ${lowDeg}deg ${mediumEnd}deg,
-                              #EF4444 ${mediumEnd}deg 360deg
-                            )`
-                          : "#2A4845",
-                      maskImage:
-                        "radial-gradient(transparent 60%, black 61%)",
-                      WebkitMaskImage:
-                        "radial-gradient(transparent 60%, black 61%)",
-                    }}
-                  />
-                  <div className="z-10 text-center">
-                    <span className="font-mono text-2xl font-extrabold text-[#F5F2EB]">
-                      {riskTotal}
-                    </span>
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-[#F5F2EB]/60">
-                      Records
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap justify-center gap-x-5 gap-y-3 font-mono text-xs">
-                <RiskLegend color="bg-[#E6DFD5]" label="LOW" count={lowRiskCount} />
-                <RiskLegend color="bg-[#F59E0B]" label="MEDIUM" count={mediumRiskCount} />
-                <RiskLegend color="bg-[#EF4444]" label="HIGH" count={highRiskCount} />
-              </div>
-            </section>
-
-            {/* Transaction types */}
-            <section className="space-y-6 rounded-3xl border border-[#2A4845]/60 bg-[#061F22]/40 p-6 shadow-2xl backdrop-blur-xl lg:p-8">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-bold text-[#F5F2EB]">
-                  Transactions by Type
-                </h2>
-                <span className="font-mono text-xs text-[#F5F2EB]/50">
-                  API sample
-                </span>
-              </div>
-
-              <div className="flex h-48 items-end justify-between gap-3 border-b border-l border-[#2A4845]/60 px-2 pt-6 sm:px-4">
-                {txTypes.map((bar) => (
-                  <div
-                    key={bar.label}
-                    className="flex h-full flex-1 flex-col items-center justify-end gap-2"
-                  >
-                    <span className="font-mono text-[10px] text-[#F5F2EB]/60">
-                      {bar.value}
-                    </span>
-                    <div
-                      className="w-full rounded-t-lg bg-[#E6DFD5] transition-all duration-500"
-                      style={{
-                        height: `${
-                          bar.value > 0
-                            ? Math.max((bar.value / maxTxType) * 75, 5)
-                            : 0
-                        }%`,
-                      }}
-                      title={`${bar.label}: ${bar.value}`}
-                    />
-                    <span className="whitespace-nowrap font-mono text-[8px] text-[#F5F2EB]/70 sm:text-[9px]">
-                      {bar.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          {/* Amount distribution */}
-          <section className="space-y-6 rounded-3xl border border-[#2A4845]/60 bg-[#061F22]/40 p-6 shadow-2xl backdrop-blur-xl lg:p-8">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-[#F5F2EB]">
-                Transaction Amount Distribution
-              </h2>
-              <span className="font-mono text-xs text-[#F5F2EB]/50">
-                API sample
-              </span>
-            </div>
-
-            <div className="flex h-52 items-end justify-between gap-2 border-b border-l border-[#2A4845]/60 px-2 pt-6 sm:gap-4 sm:px-4">
-              {amountBuckets.map((item) => (
+            <div className="space-y-3 font-mono text-xs">
+              {[
+                ["Transaction ID", selectedAlert.txId],
+                ["Transaction Type", selectedAlert.type],
+                ["Amount", `₹${selectedAlert.amount}`],
+                ["Fraud Probability", selectedAlert.prob],
+                ["Risk Level", selectedAlert.risk],
+                ["Timestamp", formatTimestamp(selectedAlert.timestamp)],
+                ["Step", selectedAlert.step ?? "—"],
+              ].map(([label, value]) => (
                 <div
-                  key={item.range}
-                  className="flex h-full flex-1 flex-col items-center justify-end gap-2"
+                  key={label}
+                  className="flex items-start justify-between gap-4 p-3 rounded-2xl bg-[#2A4845]/20 backdrop-blur-md border border-[#2A4845]/40"
                 >
-                  <span className="font-mono text-[10px] text-[#F5F2EB]/60">
-                    {item.count}
-                  </span>
-                  <div
-                    className="w-full rounded-t-lg bg-[#E6DFD5] transition-all duration-500"
-                    style={{
-                      height: `${
-                        item.count > 0
-                          ? Math.max((item.count / maxAmountBucket) * 75, 5)
-                          : 0
-                      }%`,
-                    }}
-                    title={`${item.range}: ${item.count}`}
-                  />
-                  <span className="whitespace-nowrap font-mono text-[8px] text-[#F5F2EB]/70 sm:text-[10px]">
-                    {item.range}
+                  <span className="text-[#C8D7CD]/60">{label}:</span>
+                  <span className="font-semibold text-[#C8D7CD] text-right break-all">
+                    {value}
                   </span>
                 </div>
               ))}
+
+              <div className="p-3 rounded-2xl bg-[#2A4845]/20 backdrop-blur-md border border-[#2A4845]/40">
+                <label className="block text-[#C8D7CD]/60 mb-2">
+                  Investigation Status
+                </label>
+                <select
+                  value={selectedAlert.status}
+                  disabled={updatingStatus}
+                  onChange={(event) =>
+                    void handleUpdateStatus(selectedAlert, event.target.value)
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-[#061F22] border border-[#2A4845] text-[#C8D7CD] focus:outline-none focus:border-[#C8D7CD]/50 cursor-pointer"
+                >
+                  {["NEW", "INVESTIGATING", "RESOLVED", "CLOSED"].map((status) => (
+                    <option key={status} value={status} className="bg-[#061F22]">
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedAlert.description && (
+                <div className="p-3 rounded-2xl bg-[#2A4845]/20 backdrop-blur-md border border-[#2A4845]/40">
+                  <p className="text-[#C8D7CD]/60 mb-2">Description</p>
+                  <p className="text-[#C8D7CD]">{selectedAlert.description}</p>
+                </div>
+              )}
             </div>
-          </section>
 
-          {/* Sample summary */}
-          <p className="text-xs text-[#F5F2EB]/40">
-            Analytics are calculated from the records returned by the backend
-            endpoint. They may represent a limited API sample rather than the
-            complete transaction dataset.
-          </p>
-        </main>
-      </div>
+            {showToast && (
+              <div className="p-3 rounded-2xl bg-[#061F22]/90 border border-[#2A4845] flex items-center gap-2 text-xs text-[#C8D7CD]">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                {toastMessage}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setSelectedAlert(null)}
+                className="px-5 py-2.5 rounded-2xl bg-[#2A4845] backdrop-blur-md text-[#C8D7CD] text-xs font-medium hover:bg-[#355854] transition-colors border border-[#C8D7CD]/30 shadow-lg cursor-pointer"
+              >
+                Close Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-function MetricCard({
-  label,
-  value,
-  note,
-  valueClass = "text-[#F5F2EB]",
-}: {
-  label: string;
-  value: string;
-  note: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="flex flex-col justify-between rounded-3xl border border-[#2A4845]/60 bg-[#061F22]/40 p-6 shadow-2xl backdrop-blur-xl">
-      <span className="block font-mono text-[10px] uppercase text-[#F5F2EB]/60">
-        {label}
-      </span>
-      <div className="mt-3">
-        <h3 className={`break-words font-mono text-2xl font-bold ${valueClass}`}>
-          {value}
-        </h3>
-        <p className="mt-1 font-mono text-[10px] text-[#F5F2EB]/50">{note}</p>
-      </div>
-    </div>
-  );
-}
-
-function RiskLegend({
-  color,
-  label,
-  count,
-}: {
-  color: string;
-  label: string;
-  count: number;
-}) {
-  return (
-    <div className="flex items-center gap-2 text-[#F5F2EB]/80">
-      <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
-      {label} {count}
-    </div>
-  );
-}
-
