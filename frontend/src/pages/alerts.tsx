@@ -6,7 +6,6 @@ import {
   Search,
   Bell,
   BarChart3,
-  AlertTriangle,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
