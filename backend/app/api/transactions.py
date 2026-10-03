@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlsplit, parse_qs
 
+from dotenv import load_dotenv
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -18,6 +19,9 @@ from app.ml.predict import predict_fraud, predict_fraud_batch
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(ENV_PATH, override=True)
 
 # MongoDB Atlas connection
 MONGODB_URI = os.getenv("MONGODB_URI")

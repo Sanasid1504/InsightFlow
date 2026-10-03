@@ -47,13 +47,19 @@ export default function Analytics({
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [error, setError] = useState("");
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 
   const fetchAnalytics = useCallback(async () => {
     try {
       setError("");
 
+      if (!API_BASE_URL) {
+        throw new Error("VITE_API_BASE_URL is not configured");
+}
+
       const response = await fetch(
-        "http://127.0.0.1:8000/api/alerts?limit=500"
+        `${API_BASE_URL}/api/alerts?limit=500`
       );
 
       if (!response.ok) {

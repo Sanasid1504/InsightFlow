@@ -7,7 +7,13 @@ from sklearn.model_selection import train_test_split
 import joblib
 
 # Load data
-df = pd.read_csv("Transactions Data.csv")
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+DATA_PATH = BASE_DIR / "Transactions Data.csv"
+MODEL_PATH = BASE_DIR / "app" / "models" / "fraud_model_rf.pkl"
+
+df = pd.read_csv(DATA_PATH)
 
 # Clean nulls
 df_model = df.drop(columns=['nameOrig', 'nameDest', 'isFlaggedFraud'])
@@ -39,6 +45,5 @@ rf = Pipeline(steps=[
 
 rf.fit(X_train, y_train)
 
-# Save it — using THIS environment's library versions
-joblib.dump(rf, 'app/models/fraud_model_rf.pkl')
-print("Model retrained and saved successfully.")
+joblib.dump(rf, MODEL_PATH)
+print(f"Model retrained and saved successfully at: {MODEL_PATH}")
