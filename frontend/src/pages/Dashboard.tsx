@@ -1,74 +1,38 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
 import { 
-
   LayoutDashboard, 
-
   ArrowLeftRight, 
-
   Search, 
-
   Bell, 
-
   BarChart3, 
-
   AlertTriangle, 
-
   CheckCircle2, 
-
   ChevronRight, 
-
   Eye, 
-
   Target, 
-
   Menu,
-
   X,
-
   ArrowLeft,
-
   ArrowRight
-
 } from 'lucide-react';
 
 
-
-
-
 interface DashboardProps {
-
   onBackToLanding?: () => void;
-
-  onNavigate?: (view: string) => void;
-
-}
-
-
+  onNavigate?: (view: string) => void;}
 
 interface TransactionItem {
-
   id: string;
-
   txId: string;
-
   type: string;
-
   amount: string;
-
   rawAmount: number;
-
   prob: string;
-
   risk: string;
-
   status: string;
-
   step?: string;
-
 }
-
-
 
 interface ApiTransaction {
   id: string;
@@ -171,7 +135,7 @@ export default function Dashboard({ onBackToLanding, onNavigate }: DashboardProp
 
     try {
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/alerts?limit=500`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alerts?limit=500`);
 
       if (!response.ok) {
 
@@ -313,7 +277,8 @@ export default function Dashboard({ onBackToLanding, onNavigate }: DashboardProp
 
 
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/predict`, {
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/predict`, {
 
         method: 'POST',
 
